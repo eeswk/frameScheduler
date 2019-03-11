@@ -52,10 +52,10 @@ public class Timer {
          * saveFrameCycleRankPdctAllProcess
          *
          */
-        //frameCycleService.frameCycleStatsPdctScheduler();
+        frameCycleService.frameCycleStatsPdctScheduler();
         //frameCycleService.frameCycleRankPdctProcess2();
-        int result = frameCycleService.saveFrameCycleRankPdctAllProcess();
-        log.info("result - {} !!", result);
+//        int result = frameCycleService.saveFrameCycleRankPdctAllProcess();
+//        log.info("result - {} !!", result);
 
         log.info("{} end!!", taskName);
         watch.start(taskName);

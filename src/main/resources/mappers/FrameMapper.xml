@@ -58,7 +58,7 @@
 		t.ALGM_SEQ,
 		t.PRDT_TP_CODE,
 		t.cycle_trn
-		ORDER BY t.ctr, t.click_cnt, t.view_cnt, t.FRME_CODE  DESC
+		ORDER BY t.ctr DESC, t.click_cnt DESC, t.view_cnt DESC, t.FRME_CODE  DESC
 		) AS RN
 		FROM
 		(SELECT
