@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<configuration>
+
+<!--     type alias를 설정하며 package안에 있는 항목에 대해서 자동으로 설정. 각 도메인은 @Alias() 어노테이션으로 alias이름을 설정해야한다. -->
+    <typeAliases>
+        <package name="com.mobon.frame.model"/>
+    </typeAliases>
+
+<!--     Mapper 설정 -->
+    <mappers>
+        <mapper resource="mappers/FrameMapper.xml"/>
+    </mappers>
+</configuration>

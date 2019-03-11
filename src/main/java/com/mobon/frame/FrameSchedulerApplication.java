@@ -1,0 +1,17 @@
+package com.mobon.frame;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+@Slf4j
+@SpringBootApplication
+@EnableScheduling
+public class FrameSchedulerApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(FrameSchedulerApplication.class, args);
+    }
+
+}

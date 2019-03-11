@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.mobon.frame.persistence.FrameMapper">
+	<select id="getFrameCycleStatsTarget" resultType="frameCycleStatsTargetDto">
+<![CDATA[
+		SELECT
+			cycle.media_script_no as mediaScriptNo,
+			cycle.algm_Seq as algmSeq,
+			cycle.prdt_Tp_Code as prdtTpCode
+		FROM
+			(SELECT
+				 p.media_script_no,
+				 p.algm_Seq,
+				 p.prdt_Tp_Code,
+				 COUNT(0) cnt
+			 FROM
+				 FRME_CYCLE_LOG p
+			 WHERE p.algm_seq IN (2, 3, 4)
+			   AND p.cycle_trn != 0
+			 GROUP BY p.media_script_no,
+					  p.algm_Seq,
+					  p.prdt_Tp_Code
+			 ORDER BY cnt DESC) cycle
+				LEFT JOIN
+				(SELECT
+					 fcd.media_script_no,
+					 fcd.algm_Seq,
+					 fcd.prdt_Tp_Code
+				 FROM
+					 FRME_CYCLE_PDCT fcd
+				 GROUP BY fcd.media_script_no,
+						  fcd.algm_Seq,
+						  fcd.prdt_Tp_Code) pdct
+				ON cycle.media_script_no = pdct.media_script_no
+					AND cycle.algm_Seq = pdct.algm_Seq
+					AND cycle.prdt_Tp_Code = pdct.prdt_Tp_Code
+		WHERE pdct.media_script_no IS NULL
+		LIMIT 100
+]]>
+	</select>
+
+	<select id="getFrameCycleStatsRank" resultType="frameCycleStatsRankDto" parameterType="frameCycleStatsTargetDto">
+<![CDATA[
+		SELECT
+		tt.MEDIA_SCRIPT_NO as mediaScriptNo,
+		tt.ALGM_SEQ as algmSeq,
+		tt.PRDT_TP_CODE as prdtTpCode,
+		tt.FRME_CODE as frameCode,
+		tt.CYCLE_TRN as cycleTrn,
+		tt.CTR as ctr,
+		tt.RN as rank
+		FROM
+		(SELECT
+		t.*,
+		RANK() OVER (
+		PARTITION BY t.MEDIA_SCRIPT_NO,
+		t.ALGM_SEQ,
+		t.PRDT_TP_CODE,
+		t.cycle_trn
+		ORDER BY t.ctr, t.click_cnt, t.view_cnt, t.FRME_CODE  DESC
+		) AS RN
+		FROM
+		(SELECT
+		fcl.MEDIA_SCRIPT_NO,
+		fcl.ALGM_SEQ,
+		fcl.PRDT_TP_CODE,
+		fcl.FRME_CODE,
+		fcl.cycle_trn,
+		SUM(fcl.CLICK_CNT) / SUM(fcl.par_eprs_cnt) * 100 ctr,
+		SUM(fcl.CLICK_CNT) AS click_cnt,
+		SUM(fcl.par_eprs_cnt) AS view_cnt
+		FROM
+		FRME_CYCLE_LOG fcl
+		GROUP BY fcl.MEDIA_SCRIPT_NO,
+		fcl.ALGM_SEQ,
+		fcl.PRDT_TP_CODE,
+		fcl.FRME_CODE,
+		fcl.cycle_trn) t
+		WHERE 1 = 1
+		AND t.media_script_no = #{mediaScriptNo}
+		AND t.ALGM_SEQ = #{algmSeq}
+		AND t.prdt_tp_code = #{prdtTpCode} ) tt
+		WHERE tt.rn <= 2
+		ORDER BY tt.MEDIA_SCRIPT_NO ASC,
+		tt.cycle_trn ASC,
+		tt.rn ASC
+]]>
+	</select>
+
+	<select id="getFrameCycleStatsRankAll" resultType="frameCycleStatsRankDto">
+<![CDATA[
+		SELECT
+			   AA.MEDIA_SCRIPT_NO as mediaScriptNo,
+			   AA.ALGM_SEQ as algmSeq,
+			   AA.PRDT_TP_CODE as prdtTpCode,
+			   AA.CYCLE_TRN as cycleTrn,
+			   AA.FRME_CODE as frameCode,
+			   AA.CTR as ctr,
+			   AA.RN as rank
+		FROM (
+							 SELECT
+								 FCL.MEDIA_SCRIPT_NO,
+								 FCL.ALGM_SEQ,
+								 FCL.PRDT_TP_CODE,
+								 FCL.CYCLE_TRN,
+								 FCL.FRME_CODE,
+								 (FCL.CLICK_CNT / FCL.PAR_EPRS_CNT) * 100 AS CTR,
+								 FCL.PAR_EPRS_CNT AS VIEW,
+								 FCL.CLICK_CNT AS CLICK_CNT,
+								 ROW_NUMBER() OVER (
+								 PARTITION BY FCL.MEDIA_SCRIPT_NO,
+								 FCL.ALGM_SEQ,
+								 FCL.PRDT_TP_CODE,
+								 FCL.cycle_trn
+								 ORDER BY (FCL.CLICK_CNT / FCL.PAR_EPRS_CNT) * 100 DESC,
+								 FCL.CLICK_CNT DESC,
+								 FCL.PAR_EPRS_CNT DESC,
+								 FCL.FRME_CODE DESC
+								 ) AS RN
+							 FROM
+								 FRME_CYCLE_LOG AS FCL
+							 WHERE FCL.ALGM_SEQ IN (2, 3, 4)
+								 AND FCL.CYCLE_TRN > 0) AA
+		WHERE RN <= 2
+		ORDER BY MEDIA_SCRIPT_NO,
+				 ALGM_SEQ,
+				 PRDT_TP_CODE,
+				 CYCLE_TRN,
+				 RN
+
+]]>
+	</select>
+
+	<insert id="saveFrameCyclePdctAll">
+<![CDATA[
+INSERT INTO FRME_CYCLE_PDCT (
+  MEDIA_SCRIPT_NO,
+  ALGM_SEQ,
+  PRDT_TP_CODE,
+  CYCLE_TRN,
+  FRME_CODE,
+  PDCT_SUCES_YN,
+  REG_USER_ID,
+  REG_DTTM
+)
+SELECT
+total.mediaScriptNo,
+total.algmSeq,
+total.prdtTpCode,
+total.cycleTrn,
+total.frameCode,
+total.pdctSuccessYn,
+total.regUserId,
+total.regDttm
+FROM (
+SELECT
+  c.mediaScriptNo,
+  c.algmSeq,
+  c.prdtTpCode,
+  c.cycleTrn,
+  c.frameCode,
+  CASE WHEN COUNT(t.mediaScriptNo) > 0 THEN 'Y'
+  ELSE 'N' END
+  AS pdctSuccessYn,
+  'SYSTEM' AS regUserId,
+  NOW() AS regDttm
+FROM
+  (SELECT
+    AA.MEDIA_SCRIPT_NO AS mediaScriptNo,
+    AA.ALGM_SEQ AS algmSeq,
+    AA.PRDT_TP_CODE AS prdtTpCode,
+    AA.CYCLE_TRN AS cycleTrn,
+    AA.FRME_CODE AS frameCode,
+    AA.CTR AS ctr,
+    AA.RN AS rank
+  FROM
+    (SELECT
+      FCL.MEDIA_SCRIPT_NO,
+      FCL.ALGM_SEQ,
+      FCL.PRDT_TP_CODE,
+      FCL.CYCLE_TRN,
+      FCL.FRME_CODE,
+      (FCL.CLICK_CNT / FCL.PAR_EPRS_CNT) * 100 AS CTR,
+      FCL.PAR_EPRS_CNT AS VIEW,
+      FCL.CLICK_CNT AS CLICK_CNT,
+      ROW_NUMBER() OVER (
+        PARTITION BY FCL.MEDIA_SCRIPT_NO,
+        FCL.ALGM_SEQ,
+        FCL.PRDT_TP_CODE,
+        FCL.cycle_trn
+    ORDER BY (FCL.CLICK_CNT / FCL.PAR_EPRS_CNT) * 100 DESC,
+      FCL.CLICK_CNT DESC,
+      FCL.PAR_EPRS_CNT DESC,
+      FCL.FRME_CODE DESC
+    ) AS RN
+    FROM
+      FRME_CYCLE_LOG AS FCL
+    WHERE FCL.ALGM_SEQ IN (2, 3, 4)
+      AND FCL.CYCLE_TRN > 0) AA
+  WHERE RN <= 2
+  ORDER BY MEDIA_SCRIPT_NO,
+    ALGM_SEQ,
+    PRDT_TP_CODE,
+    CYCLE_TRN,
+    RN) c
+  LEFT JOIN
+    (SELECT
+      AA.MEDIA_SCRIPT_NO AS mediaScriptNo,
+      AA.ALGM_SEQ AS algmSeq,
+      AA.PRDT_TP_CODE AS prdtTpCode,
+      AA.CYCLE_TRN AS cycleTrn,
+      AA.FRME_CODE AS frameCode,
+      AA.CTR AS ctr,
+      AA.RN AS rank
+    FROM
+      (SELECT
+        FCL.MEDIA_SCRIPT_NO,
+        FCL.ALGM_SEQ,
+        FCL.PRDT_TP_CODE,
+        FCL.CYCLE_TRN,
+        FCL.FRME_CODE,
+        (FCL.CLICK_CNT / FCL.PAR_EPRS_CNT) * 100 AS CTR,
+        FCL.PAR_EPRS_CNT AS VIEW,
+        FCL.CLICK_CNT AS CLICK_CNT,
+        ROW_NUMBER() OVER (
+          PARTITION BY FCL.MEDIA_SCRIPT_NO,
+          FCL.ALGM_SEQ,
+          FCL.PRDT_TP_CODE,
+          FCL.cycle_trn
+    ORDER BY (FCL.CLICK_CNT / FCL.PAR_EPRS_CNT) * 100 DESC,
+      FCL.CLICK_CNT DESC,
+      FCL.PAR_EPRS_CNT DESC,
+      FCL.FRME_CODE DESC
+      ) AS RN
+      FROM
+        FRME_CYCLE_LOG AS FCL
+      WHERE FCL.ALGM_SEQ IN (2, 3, 4)
+        AND FCL.CYCLE_TRN > 0) AA
+    WHERE RN <= 2
+    ORDER BY MEDIA_SCRIPT_NO,
+      ALGM_SEQ,
+      PRDT_TP_CODE,
+      CYCLE_TRN,
+      RN) t
+    ON c.mediaScriptNo = t.mediaScriptNo
+    AND c.algmSeq = t.algmSeq
+    AND c.prdtTpCode = t.prdtTpCode
+    AND c.cycleTrn = t.cycleTrn + 1
+    AND c.frameCode = t.frameCode
+GROUP BY c.mediaScriptNo,
+  c.algmSeq,
+  c.prdtTpCode,
+  c.cycleTrn,
+  c.frameCode
+  ) total
+  ON DUPLICATE KEY
+  UPDATE
+    PDCT_SUCES_YN = total.pdctSuccessYn
+		]]>
+	</insert>
+
+
+
+	<insert id="saveFrameCyclePdct" parameterType="frameCycleStatsPdct">
+<![CDATA[
+		INSERT INTO FRME_CYCLE_PDCT
+		(MEDIA_SCRIPT_NO,
+		 ALGM_SEQ,
+		 PRDT_TP_CODE,
+		 CYCLE_TRN,
+		 FRME_CODE,
+		 PDCT_SUCES_YN,
+		 REG_USER_ID,
+		 REG_DTTM)
+		VALUES
+		(#{mediaScriptNo},
+		 #{algmSeq},
+		 #{prdtTpCode},
+		 #{cycleTrn},
+		 #{frameCode},
+		 #{pdctSuccessYn},
+		 'SYSTEM',
+		 now())
+		ON DUPLICATE KEY UPDATE
+							 ALT_USER_ID = 'swlee2',
+							 ALT_DTTM = now()
+		]]>
+	</insert>
+</mapper>
